@@ -8,7 +8,7 @@
     "lint": "concurrently \"npm run lint:server\" \"npm run lint:ui\"",
     "lint:server": "eslint --fix .",
     "lint:ui": "npm run lint --prefix ui",
-    "test": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand --forceExit --detectOpenHandles --config ./test/jest.config.cjs",
+    "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --runInBand --forceExit --detectOpenHandles --config ./test/jest.config.cjs",
     "watch": "concurrently \"npm run watch:server\" \"npm run watch:ui\"",
     "watch:server": "nodemon",
     "watch:ui": "npm run serve --prefix ui",
@@ -16,7 +16,8 @@
   },
   "main": "src/index.js",
   "dependencies": {
-    "@aws-sdk/client-rekognition": "^3.76.0",
+    "@tensorflow/tfjs": "^4.18.0",
+    "@tensorflow-models/coco-ssd": "^2.2.2",
     "@seydx/lowdb": "^3.0.2",
     "alexa-remote2": "^4.1.2",
     "axios": "^0.26.1",
@@ -50,9 +51,11 @@
     "piexifjs": "^1.0.6",
     "ping": "^0.4.1",
     "pipe2pam": "^0.6.2",
+    "pngjs": "^7.0.0",
+    "jpeg-js": "^0.4.4",
     "smtp-server": "^3.10.0",
     "socket.io": "^4.5.0",
-    "socketio-jwt": "^4.6.2",
+    
     "swagger-jsdoc": "^6.2.1",
     "swagger-ui-express": "^4.3.0",
     "systeminformation": "^5.11.14",
@@ -74,7 +77,9 @@
     "jest-jasmine2": "^27.5.1",
     "nodemon": "^2.0.15",
     "prettier": "^2.6.2",
-    "supertest": "6.2.2"
+    "supertest": "6.2.2",
+    "socket.io-client": "^4.5.0",
+    "cross-env": "^7.0.3"
   },
   "optionalDependencies": {
     "osx-temperature-sensor": "^1.0.7"

@@ -14,7 +14,23 @@ export const list = async () => {
 };
 
 export const findByName = async (name) => {
-  return await Database.interfaceDB.chain.get('cameras').find({ name: name }).cloneDeep().value();
+  // Try to find camera in the in-memory/interface DB first
+  const cameraInDb = await Database.interfaceDB.chain.get('cameras').find({ name: name }).cloneDeep().value();
+
+  if (cameraInDb) {
+    return cameraInDb;
+  }
+
+  // Fallback: check current config (authoritative source) in case DB has not been synced yet
+  const cameraInConfig = ConfigService.ui.cameras.find((cam) => cam?.name === name);
+
+  if (cameraInConfig) {
+    // Ensure DB reflects config state for subsequent operations
+    await Database.interfaceDB.chain.get('cameras').push(cameraInConfig).value();
+    return cameraInConfig;
+  }
+
+  return undefined;
 };
 
 export const getSettingsByName = async (name) => {
@@ -29,7 +45,8 @@ export const createCamera = async (cameraData) => {
     ConfigService.writeToConfig('cameras', ConfigService.ui.cameras);
 
     CameraController.createController(cameraData);
-    await CameraController.startController(cameraData.name);
+    // Start controller asynchronously to avoid blocking on long-running probes
+    CameraController.startController(cameraData.name).catch(() => {});
 
     await Database.writeConfigCamerasToDB();
     Database.controller?.emit('addCamera', cameraData);

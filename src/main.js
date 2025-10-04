@@ -53,6 +53,16 @@ export default class Interface extends EventEmitter {
     const database = new (await import('./api/database.js')).default(this);
     this.database = await database.prepareDatabase();
 
+    // preload object detection model to reduce first-run latency
+    try {
+      const VideoAnalysisService = (await import('./controller/camera/services/videoanalysis.service.js')).default;
+      await VideoAnalysisService.initModel('lite_mobilenet_v2');
+      this.log.debug('Object detection model preloaded');
+    } catch (error) {
+      this.log.warn('Skipping model preload due to error', 'System', 'system');
+      this.log.error(error, 'System', 'system');
+    }
+
     // configure event controller
     this.log.debug('Configuring event controller...');
     this.eventController = new (await import('./controller/event/event.controller.js')).default(this);

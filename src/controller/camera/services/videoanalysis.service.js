@@ -5,7 +5,10 @@ import moment from 'moment';
 import P2P from 'pipe2pam';
 import PamDiff from 'pam-diff';
 import { spawn } from 'child_process';
-import { RekognitionClient, DetectLabelsCommand } from '@aws-sdk/client-rekognition';
+import * as tf from '@tensorflow/tfjs';
+import cocoSsd from '@tensorflow-models/coco-ssd';
+import { PNG } from 'pngjs';
+import jpeg from 'jpeg-js';
 
 import * as cameraUtils from '../utils/camera.utils.js';
 import Ping from '../../../common/ping.js';
@@ -49,6 +52,26 @@ const DEFAULT_ZONE = [
 ];
 
 export default class VideoAnalysisService {
+  static __cocoModel = null;
+  static async initModel(base = 'lite_mobilenet_v2') {
+    try {
+      if (!VideoAnalysisService.__cocoModel) {
+        VideoAnalysisService.__cocoModel = await cocoSsd.load({ base });
+        // Warmup: run an empty detect to trigger lazy init
+        try {
+          const dummy = tf.tensor3d(new Uint8Array(640 * 360 * 3), [360, 640, 3], 'int32');
+          await VideoAnalysisService.__cocoModel.detect(dummy);
+          dummy.dispose();
+        } catch (_) {
+          // ignore warmup failures
+        }
+        log.debug('COCO-SSD model initialized and cached', 'videoanalysis');
+      }
+    } catch (error) {
+      log.info('Failed to initialize COCO-SSD model', 'videoanalysis');
+      log.error(error, 'videoanalysis');
+    }
+  }
   #camera;
   #controller;
   #prebufferService;
@@ -449,27 +472,13 @@ export default class VideoAnalysisService {
 
   async #runObjectDetection() {
     try {
-      // Load settings and camera-specific Rekognition config
+      // Load settings and camera-specific detector config
       const database = await SettingsModel.show(true);
-      const SettingsDB = database.settings;
       const CameraSettings = database.settings.cameras.find((camera) => camera.name === this.cameraName);
 
-      const awsSettings = {
-        active: SettingsDB.aws?.active,
-        accessKeyId: SettingsDB.aws?.accessKeyId,
-        secretAccessKey: SettingsDB.aws?.secretAccessKey,
-        region: SettingsDB.aws?.region,
-        contingent_left: SettingsDB.aws?.contingent_left,
-        contingent_total: SettingsDB.aws?.contingent_total,
-        last_rekognition: SettingsDB.aws?.last_rekognition,
-      };
-
-      if (!awsSettings.active || !CameraSettings?.rekognition?.active) {
-        return [];
-      }
-
-      if (awsSettings.contingent_total <= 0 || awsSettings.contingent_left <= 0) {
-        log.debug('No Rekognition contingent left, skip detection..', this.cameraName);
+      // Respect per-camera toggle (reuse existing rekognition config section to avoid UI changes)
+      const enabled = CameraSettings?.rekognition?.active;
+      if (!enabled) {
         return [];
       }
 
@@ -479,63 +488,160 @@ export default class VideoAnalysisService {
         return [];
       }
 
-      const labelsFilter = (CameraSettings.rekognition.labels || ['person', 'human', 'face']).map((l) =>
-        String(l).toLowerCase()
-      );
-      const minConfidence = CameraSettings.rekognition.confidence || 80;
+      // Ensure model is cached/initialized
+      await VideoAnalysisService.initModel('lite_mobilenet_v2');
 
-      if (awsSettings.accessKeyId && awsSettings.secretAccessKey && awsSettings.region) {
-        const client = new RekognitionClient({
-          credentials: {
-            accessKeyId: awsSettings.accessKeyId,
-            secretAccessKey: awsSettings.secretAccessKey,
-          },
-          region: awsSettings.region,
-        });
+      // Decode image buffer to tensor and run detection
+      const input = this.#bufferToTensor(imgBuffer);
+      const [height, width] = input.shape;
+      const predictions = await VideoAnalysisService.__cocoModel.detect(input);
+      input.dispose();
 
-        const command = new DetectLabelsCommand({
-          Image: { Bytes: imgBuffer },
-          MaxLabels: 10,
-          MinConfidence: 50,
-        });
+      // Robust filters: accept string/array, clamp confidence 0..100
+      const rawLabels = CameraSettings?.rekognition?.labels;
+      const labelsFilter = (Array.isArray(rawLabels)
+        ? rawLabels
+        : typeof rawLabels === 'string'
+        ? rawLabels.split(',')
+        : ['person']
+      )
+        .map((l) => String(l).trim().toLowerCase())
+        .filter((l) => l);
 
-        const response = await client.send(command);
-        const detections = [];
+      const minConfidence = Math.min(100, Math.max(0, Number(CameraSettings?.rekognition?.confidence ?? 80)));
 
-        for (const label of response.Labels || []) {
-          const name = String(label.Name || '').toLowerCase();
-          const conf = Number.parseFloat((label.Confidence || 0).toFixed(2));
+      const detections = [];
 
-          if (labelsFilter.includes(name) && conf >= minConfidence) {
-            // Include bounding boxes when available
-            const boxes = (label.Instances || [])
-              .map((inst) => inst?.BoundingBox)
-              .filter(Boolean)
-              .map((b) => ({ left: b.Left, top: b.Top, width: b.Width, height: b.Height }));
+      for (const pred of predictions || []) {
+        const name = String(pred.class || '').toLowerCase();
+        const conf = Number.parseFloat(((pred.score || 0) * 100).toFixed(2));
 
-            detections.push({ label: name, confidence: conf, boxes });
-          }
+        if (labelsFilter.includes(name) && conf >= minConfidence) {
+          // COCO-SSD bbox is [x, y, width, height] in pixels
+          const b = pred.bbox || [];
+          const box = {
+            left: Math.max(0, Math.min(1, (b[0] || 0) / width)),
+            top: Math.max(0, Math.min(1, (b[1] || 0) / height)),
+            width: Math.max(0, Math.min(1, (b[2] || 0) / width)),
+            height: Math.max(0, Math.min(1, (b[3] || 0) / height)),
+          };
+          detections.push({ label: name, confidence: conf, boxes: [box] });
         }
-
-        // Update contingent
-        try {
-          await SettingsModel.patchByTarget(false, 'aws', {
-            contingent_left: (awsSettings.contingent_left || 1) - 1,
-            last_rekognition: moment().format('YYYY-MM-DD HH:mm:ss'),
-          });
-        } catch {
-          // ignore quota update errors
-        }
-
-        return detections;
       }
 
-      log.warn('AWS Rekognition not configured in config.json', this.cameraName, 'videoanalysis');
-      return [];
+      return detections;
     } catch (error) {
-      log.info('Error during object detection', this.cameraName, 'videoanalysis');
+      log.info('Error during object detection (open-source)', this.cameraName, 'videoanalysis');
       log.error(error, this.cameraName, 'videoanalysis');
       return [];
+    }
+  }
+
+  // Public wrapper for testing
+  async runObjectDetectionPublic() {
+    return await this.#runObjectDetection();
+  }
+
+  // Public method: run detection on a provided real image buffer
+  async runObjectDetectionFromBuffer(imgBuffer) {
+    try {
+      if (!imgBuffer || !imgBuffer.length) {
+        return [];
+      }
+
+      const database = await SettingsModel.show(true);
+      const CameraSettings = database.settings.cameras.find((camera) => camera.name === this.cameraName);
+      const enabled = CameraSettings?.rekognition?.active;
+      if (!enabled) {
+        return [];
+      }
+
+      await VideoAnalysisService.initModel('lite_mobilenet_v2');
+
+      const input = this.#bufferToTensor(imgBuffer);
+      const [height, width] = input.shape;
+      const predictions = await VideoAnalysisService.__cocoModel.detect(input);
+      input.dispose();
+
+      const rawLabels = CameraSettings?.rekognition?.labels;
+      const labelsFilter = (Array.isArray(rawLabels)
+        ? rawLabels
+        : typeof rawLabels === 'string'
+        ? rawLabels.split(',')
+        : ['person']
+      )
+        .map((l) => String(l).trim().toLowerCase())
+        .filter((l) => l);
+
+      const minConfidence = Math.min(100, Math.max(0, Number(CameraSettings?.rekognition?.confidence ?? 80)));
+
+      const detections = [];
+      for (const pred of predictions || []) {
+        const name = String(pred.class || '').toLowerCase();
+        const conf = Number.parseFloat(((pred.score || 0) * 100).toFixed(2));
+
+        if (labelsFilter.includes(name) && conf >= minConfidence) {
+          const b = pred.bbox || [];
+          const box = {
+            left: Math.max(0, Math.min(1, (b[0] || 0) / width)),
+            top: Math.max(0, Math.min(1, (b[1] || 0) / height)),
+            width: Math.max(0, Math.min(1, (b[2] || 0) / width)),
+            height: Math.max(0, Math.min(1, (b[3] || 0) / height)),
+          };
+          detections.push({ label: name, confidence: conf, boxes: [box] });
+        }
+      }
+
+      return detections;
+    } catch (error) {
+      log.info('Error during object detection from buffer (open-source)', this.cameraName, 'videoanalysis');
+      log.error(error, this.cameraName, 'videoanalysis');
+      return [];
+    }
+  }
+
+  #bufferToTensor(imgBuffer) {
+    // Prefer PNG parser for PNGs, fallback to JPEG, otherwise zero tensor
+    try {
+      // PNG signature 8 bytes: 89 50 4E 47 0D 0A 1A 0A
+      const isPng =
+        imgBuffer?.length > 8 &&
+        imgBuffer[0] === 0x89 &&
+        imgBuffer[1] === 0x50 &&
+        imgBuffer[2] === 0x4e &&
+        imgBuffer[3] === 0x47 &&
+        imgBuffer[4] === 0x0d &&
+        imgBuffer[5] === 0x0a &&
+        imgBuffer[6] === 0x1a &&
+        imgBuffer[7] === 0x0a;
+
+      if (isPng) {
+        const png = PNG.sync.read(imgBuffer);
+        const { width, height, data } = png; // RGBA
+        const rgb = new Uint8Array(width * height * 3);
+        for (let i = 0, j = 0; i < data.length; i += 4) {
+          rgb[j++] = data[i];
+          rgb[j++] = data[i + 1];
+          rgb[j++] = data[i + 2];
+        }
+        return tf.tensor3d(rgb, [height, width, 3], 'int32');
+      }
+
+      // Try JPEG decode
+      const decoded = jpeg.decode(imgBuffer, { useTArray: true });
+      const { width, height, data } = decoded; // RGBA
+      const rgb = new Uint8Array(width * height * 3);
+      for (let i = 0, j = 0; i < data.length; i += 4) {
+        rgb[j++] = data[i];
+        rgb[j++] = data[i + 1];
+        rgb[j++] = data[i + 2];
+      }
+      return tf.tensor3d(rgb, [height, width, 3], 'int32');
+    } catch (_) {
+      // Fallback zero tensor to avoid throwing
+      const width = 640;
+      const height = 360;
+      return tf.tensor3d(new Uint8Array(width * height * 3), [height, width, 3], 'int32');
     }
   }
 

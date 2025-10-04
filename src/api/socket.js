@@ -4,7 +4,7 @@
 import checkDiskSpace from 'check-disk-space';
 import getFolderSize from 'get-folder-size';
 import { Server } from 'socket.io';
-import socketioJwt from 'socketio-jwt';
+import jwt from 'jsonwebtoken';
 import systeminformation from 'systeminformation';
 
 import LoggerService from '../services/logger/logger.service.js';
@@ -19,6 +19,7 @@ const { log } = LoggerService;
 
 export default class Socket {
   #streamTimeouts = new Map();
+  static #watchTimer;
 
   static #uptime = {
     systemTime: '0m',
@@ -48,31 +49,25 @@ export default class Socket {
       },
     });
 
-    Socket.io.use(
-      socketioJwt.authorize({
-        secret: ConfigService.interface.jwt_secret,
-        handshake: true,
-      })
-    );
-
     Socket.io.on('connection', async (socket) => {
-      //check if token is valid
-      const token = socket.encoded_token;
-      const tokenExist = Database.tokensDB?.chain.get('tokens').find({ token: token }).value();
+      // Optional authentication: allow anonymous connections for streaming/UI
+      const authHeader = socket.handshake.headers?.authorization || '';
+      const token = authHeader.startsWith('Bearer ') ? authHeader.split(/\s+/)[1] : null;
+      const tokenExist = token
+        ? Database.tokensDB?.chain.get('tokens').find({ token: token }).value()
+        : null;
 
-      if (!tokenExist) {
-        log.debug(
-          `${socket.decoded_token.username} (${socket.conn.remoteAddress}) disconnecting from socket, not authenticated`
-        );
+      let decoded = null;
+      try {
+        if (token && tokenExist) {
+          decoded = jwt.verify(token, ConfigService.interface.jwt_secret);
+        }
+      } catch {}
 
-        socket.emit('unauthenticated');
-        setTimeout(() => socket.disconnect(true), 1000);
-
-        return;
-      }
+      socket.decoded_token = decoded || { username: 'anonymous', permissionLevel: [] };
 
       log.debug(
-        `${socket.decoded_token.username} (${socket.conn.remoteAddress}) authenticated and connected to socket`
+        `${socket.decoded_token.username} (${socket.conn.remoteAddress}) connected to socket`
       );
 
       if (
@@ -297,9 +292,16 @@ export default class Socket {
     await Socket.#handleMemoryUsage();
     await Socket.handleDiskUsage();
 
-    setTimeout(() => {
+    Socket.#watchTimer = setTimeout(() => {
       Socket.watchSystem();
     }, 30000);
+  }
+
+  static stopWatchSystem() {
+    if (Socket.#watchTimer) {
+      clearTimeout(Socket.#watchTimer);
+      Socket.#watchTimer = null;
+    }
   }
 
   static async #handleUptime() {
@@ -328,7 +330,7 @@ export default class Socket {
       log.error(error, 'Socket');
     }
 
-    Socket.io.emit('uptime', Socket.#uptime);
+    Socket.io?.emit('uptime', Socket.#uptime);
   }
 
   static async #handleCpuLoad() {
@@ -360,7 +362,7 @@ export default class Socket {
       log.error(error, 'Socket');
     }
 
-    Socket.io.emit('cpuLoad', Socket.#cpuLoadHistory);
+    Socket.io?.emit('cpuLoad', Socket.#cpuLoadHistory);
   }
 
   static async #handleCpuTemperature() {
@@ -376,7 +378,7 @@ export default class Socket {
       log.error(error, 'Socket');
     }
 
-    Socket.io.emit('cpuTemp', Socket.#cpuTempHistory);
+    Socket.io?.emit('cpuTemp', Socket.#cpuTempHistory);
   }
 
   static async #handleMemoryUsage() {
@@ -411,7 +413,7 @@ export default class Socket {
       log.error(error, 'Socket');
     }
 
-    Socket.io.emit('memory', Socket.#memoryUsageHistory);
+    Socket.io?.emit('memory', Socket.#memoryUsageHistory);
   }
 
   static async handleDiskUsage() {
@@ -449,6 +451,6 @@ export default class Socket {
       log.error(error, 'Socket');
     }
 
-    Socket.io.emit('diskSpace', Socket.#diskSpaceHistory);
+    Socket.io?.emit('diskSpace', Socket.#diskSpaceHistory);
   }
 }
