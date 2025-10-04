@@ -104,6 +104,69 @@ Streaming e Baixa Latência
   - Player: `webgl: true`, `pauseWhenHidden: false`, ajustar `videoBufferSize`.
   - FFmpeg: reduzir buffers (`-rtbufsize 512k`), `-flush_packets 1` para escoamento rápido.
 
+Análise de Vídeo e Detecção de Objetos (Avançado)
+- Visão geral:
+  - O backend usa `PamDiff` para detectar movimento a partir de frames via `image2pipe` (FFmpeg).
+  - Ao detectar movimento, captura um snapshot e envia para o AWS Rekognition (`DetectLabels`) para identificar objetos/labels.
+  - Os resultados (labels, confiança e bounding boxes) são emitidos em tempo real via Socket para a UI.
+- Como habilitar (AWS Rekognition):
+  - Na UI, abra Configurações → Rekognition e informe `Access Key ID`, `Secret Access Key` e `Region`.
+  - Ative o serviço (`active: true`) e defina limites de contingente/uso por minuto se desejar.
+  - Em cada câmera, configure os filtros (whitelist de labels, limiar de confiança) conforme necessidade.
+- Fluxo técnico:
+  - FFmpeg (`-f image2pipe`) → `pipe2pam` → `PamDiff` → snapshot via serviços de câmera → `Rekognition DetectLabels` → evento Socket `videoanalysisDetections`.
+- Endpoints de controle de análise:
+  - `POST /api/cameras/{name}/videoanalysis/restart` — reinicia análise (útil após alterar configurações).
+  - `POST /api/cameras/{name}/videoanalysis/stop` — interrompe análise para a câmera.
+- Evento Socket e payload:
+  - Canal: `videoanalysisDetections`
+  - Exemplo de payload:
+    ```json
+    {
+      "camera": "Entrada",
+      "at": "2025-10-04T12:01:15.123Z",
+      "detections": [
+        {
+          "label": "Person",
+          "confidence": 92.1,
+          "boxes": [
+            { "left": 0.12, "top": 0.18, "width": 0.15, "height": 0.35 }
+          ]
+        },
+        {
+          "label": "Car",
+          "confidence": 88.5,
+          "boxes": [
+            { "left": 0.52, "top": 0.40, "width": 0.20, "height": 0.18 }
+          ]
+        }
+      ]
+    }
+    ```
+- Overlay de detecções na UI:
+  - O componente `ui/src/components/camera-card.vue` assina `videoanalysisDetections` e desenha caixas e labels em um `canvas` sobre o vídeo (`JSMpeg.Player`).
+  - As caixas usam coordenadas relativas (0..1) do Rekognition e são convertidas para pixels do overlay.
+  - O overlay é redimensionado junto ao player e limpa automaticamente após alguns segundos sem novas detecções.
+- Filtros por câmera e qualidade dos resultados:
+  - Você pode limitar labels detectados (ex.: apenas `Person`, `Car`) e ajustar o limiar mínimo de confiança.
+  - Para melhorar a qualidade dos snapshots, garanta boa iluminação e bitrate adequado no stream da câmera.
+- Performance, custos e limites:
+  - A chamada ao Rekognition é acionada de forma "throttled" após eventos de movimento para reduzir uso e custos.
+  - Defina contingentes por minuto e evite chamar em cada frame — ajuste via UI/Settings conforme seu orçamento.
+  - Atenção a latência de rede e ao upload de imagens; use regiões AWS próximas ao servidor.
+- Alternativa: modelos locais
+  - Caso prefira evitar serviços externos, você pode integrar modelos locais (ex.: YOLO via ONNX) no mesmo ponto do pipeline (`videoanalysis.service.js`), substituindo a chamada ao Rekognition por inferência local.
+  - Mantenha o mesmo formato de evento Socket para reaproveitar o overlay na UI.
+
+Dicas de Desenvolvimento e Debug (Avançado)
+- Backend:
+  - Logs de análise e erros de FFmpeg/pipe estão disponíveis no console do serviço e em `logs/camera.ui.log`.
+  - Ao ajustar parâmetros de FFmpeg, monitore quedas de frames e backpressure do pipe.
+- Frontend:
+  - Se o overlay ficar desalinhado, verifique a proporção do container. Ajuste para ler as dimensões reais de destino do `JSMpeg` quando necessário.
+  - Use o dev server (`npm run serve` no diretório `ui`) com `NODE_OPTIONS=--openssl-legacy-provider` se usar Node 17+.
+  - Ferramentas úteis: `Vue Devtools` para inspecionar estado e eventos, e o console para ver payloads de `videoanalysisDetections`.
+
 Testes
 - Testes em `test/__tests__` cobrindo autenticação, usuários, câmeras, settings, backup, etc.
 - Script: `npm test` usa Jest com `NODE_OPTIONS=--experimental-vm-modules` (ver `package.json`).
@@ -118,6 +181,10 @@ Troubleshooting
 - Porta `8081` ocupada: liberar ou alterar porta do dev server.
 - FFmpeg não encontrado: garantir instalação e presença no PATH.
 - CRLF/LF em Windows: ajustar `git config core.autocrlf` conforme necessidade.
+- Overlay não aparece:
+  - Verifique se o stream está ativo no `camera-card` (canvas principal renderizado).
+  - Confirme que o serviço Rekognition está ativo e que a câmera está configurada para detecção.
+  - Cheque o evento Socket `videoanalysisDetections` no console e se o `camera` do payload corresponde ao nome da câmera exibida.
 
 Segurança
 - Senhas armazenadas com hash (salt + HMAC‑SHA512), não recuperáveis.
