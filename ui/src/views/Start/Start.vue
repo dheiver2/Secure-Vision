@@ -19,7 +19,7 @@
           .tw-block
             v-img(src="@/assets/img/logo.svg" width="42" height="50")
           h5.tw-text-xl.tw-font-light.tw-mt-3 {{ $t('welcome_message') }}
-          h1.tw-text-4xl.tw-font-black.tw-leading-7 camera.ui
+          h1.tw-text-4xl.tw-font-black.tw-leading-7 SecureVision
           .tw-mt-5.text-muted.tw-text-center.tw-text-sm {{ startMsg1 }}
             br 
             | {{ startMsg2 }}
@@ -51,7 +51,7 @@
         v-card.start-content.tw-flex.tw-justify-center.tw-items-center.tw-flex-col(height="320px")
 
           .tw-block
-            inline-svg(:src="require('../../assets/img/logo_animated.svg')" title="camera.ui" aria-label="camera.ui" width="78px" height="84px")
+            inline-svg(:src="require('../../assets/img/logo_animated.svg')" title="SecureVision" aria-label="SecureVision" width="78px" height="84px")
 
           .tw-mt-8.text-muted.tw-text-center.tw-text-base 
             strong.tw-text-white {{ endMsg1 }}

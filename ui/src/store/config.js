@@ -16,7 +16,7 @@ export const config = {
         commit('setLang', lang);
 
         let mode = localStorage.getItem('theme') ? localStorage.getItem('theme').split('-')[0] : 'dark';
-        const color = localStorage.getItem('theme-color') || 'pink';
+        const color = localStorage.getItem('theme-color') || 'gray';
         const autoMode = localStorage.getItem('darkmode') === 'auto';
 
         if (autoMode) {

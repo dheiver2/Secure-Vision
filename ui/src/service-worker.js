@@ -1,5 +1,5 @@
 /* eslint-disable no-undef */
-workbox.core.setCacheNameDetails({ prefix: 'camera.ui' });
+workbox.core.setCacheNameDetails({ prefix: 'SecureVision' });
 
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
@@ -20,7 +20,7 @@ self.addEventListener('push', function (event) {
     type: 'image',
     dir: 'auto',
     body: `${data.camera} - ${data.time}`,
-    tag: 'camera.ui',
+    tag: 'SecureVision',
     persistent: true,
     badge: 'img/web/logo.png',
     icon: 'img/web/logo.png',

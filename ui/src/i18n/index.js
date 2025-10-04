@@ -52,7 +52,31 @@ const currentLanguage = (lang) => {
 };
 
 const loadLanguage = (lang) => {
-  return require(`./locale/${currentLanguage(lang)}.json`);
+  const locale = currentLanguage(lang);
+  const raw = require(`./locale/${locale}.json`);
+
+  const replaceBranding = (input) => {
+    const walk = (val) => {
+      if (typeof val === 'string') {
+        return val.replace(/camera\.ui/g, 'SecureVision');
+      }
+      if (Array.isArray(val)) {
+        return val.map(walk);
+      }
+      if (val && typeof val === 'object') {
+        const out = {};
+        Object.keys(val).forEach((k) => {
+          out[k] = walk(val[k]);
+        });
+        return out;
+      }
+      return val;
+    };
+    return walk(input);
+  };
+
+  const messages = raw[locale] ? raw[locale] : raw;
+  return { [locale]: replaceBranding(messages) };
 };
 
 const lang = currentLanguage();
@@ -61,6 +85,7 @@ Vue.use(VueI18n);
 
 const index18n = new VueI18n({
   locale: lang,
+  fallbackLocale: 'en',
   messages: loadLanguage(lang),
 });
 

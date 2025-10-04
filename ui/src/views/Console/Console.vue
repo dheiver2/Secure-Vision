@@ -137,7 +137,7 @@ export default {
         const url = window.URL.createObjectURL(new Blob([response.data]));
         const link = document.createElement('a');
         link.href = url;
-        link.setAttribute('download', 'camera.ui.log.txt');
+        link.setAttribute('download', 'securevision.log.txt');
         document.body.appendChild(link);
         link.click();
         link.remove();
@@ -170,7 +170,7 @@ export default {
         const data = {
           title: this.$t('log'),
           text: `${this.$t('log')} - ${new Date()}`,
-          files: [new File([blob], 'camera.ui.log.txt', { type: blob.type })],
+          files: [new File([blob], 'securevision.log.txt', { type: blob.type })],
         };
 
         navigator.share(data).catch((err) => {

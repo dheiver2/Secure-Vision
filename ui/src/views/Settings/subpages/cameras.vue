@@ -904,7 +904,7 @@ export default {
         rooms: [],
       },
 
-      moduleName: 'camera.ui',
+      moduleName: 'SecureVision',
       hostname: window.location.hostname,
 
       search: null,
@@ -946,7 +946,7 @@ export default {
 
           try {
             const snapshot = await getCameraSnapshot(this.camera.name, '?buffer=true&fromSubSource=true');
-            this.options[this.camera.name].background = `data:image/png;base64,${snapshot.data}`;
+            this.options[this.camera.name].background = `data:image/jpeg;base64,${snapshot.data}`;
             this.options[this.camera.name].loading = false;
           } catch (err) {
             console.log(err);

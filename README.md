@@ -1,4 +1,89 @@
-> [!IMPORTANT]
+Segure Vision
+===============
+
+Visão geral
+- Segure Vision é uma plataforma de monitoramento de câmeras com interface web, detecção de movimento, notificações, gravações e recursos de automação. Baseia‑se em uma arquitetura leve (Node.js + Vue) e armazena seus dados localmente no diretório do usuário.
+
+Principais recursos
+- Dashboard com status em tempo real
+- Visualização ao vivo (camview) com baixa latência
+- Gravações e snapshots organizados por câmera
+- Detecção de movimento e análise básica de vídeo
+- Notificações e relatórios
+- Gestão de usuários e permissões
+- Backup e restauração do ambiente
+- API REST autenticada (JWT)
+
+Acesso e credenciais padrão
+- Interface: `http://localhost:8081/`
+- Usuário padrão: `master`
+- Senha padrão: `master`
+- No primeiro login, será solicitado alterar usuário e senha.
+
+Instalação rápida
+- Pré‑requisitos: Node.js LTS, npm e FFmpeg instalados no sistema.
+- Instale dependências no servidor:
+  - No diretório raiz do projeto: `npm install`
+- Inicie o serviço (CLI):
+  - `camera.ui` (usa o diretório padrão de armazenamento)
+  - Ou com caminho personalizado: `camera.ui -S "<caminho-de-armazenamento>"`
+
+Desenvolvimento da interface (UI)
+- A UI fica em `ui/`.
+- Instale dependências: `cd ui && npm install`
+- Execute em modo desenvolvimento com hot‑reload: `npm run serve`
+- Acesse em `http://localhost:8081/`
+
+Estrutura de armazenamento
+- Por padrão, o ambiente é instalado em `~/.camera.ui`.
+- Windows: `C:\Users\SEU_USUARIO\.camera.ui`
+- Arquivos importantes:
+  - `config.json`: configurações da aplicação
+  - `database/database.json`: banco de dados (usuários, câmeras, settings)
+  - `recordings/`: gravações e snapshots
+  - `logs/camera.ui.log`: logs do serviço
+
+Gerenciamento de usuários
+- Listar usuários: `GET /api/users` (requer token)
+- Buscar usuário: `GET /api/users/{name}`
+- Criar usuário: `POST /api/users` (admin)
+- Atualizar credenciais: `PATCH /api/users/{name}`
+- Remover usuário: `DELETE /api/users/{name}` (admin)
+- Recuperação de acesso: se esquecer a senha do admin, remova as entradas de usuários em `database.json` e reinicie o serviço; o sistema volta para `master/master`.
+
+Autenticação
+- Login: `POST /api/auth/login` (body: `{ "username": "<user>", "password": "<senha>" }`)
+- Logout: `POST /api/auth/logout` (Bearer token)
+- Verificação: `GET /api/auth/check` (Bearer token)
+
+Configurações
+- Obter settings: `GET /api/settings`
+- Obter seção específica: `GET /api/settings/{target}`
+- Alterar seção: `PATCH /api/settings/{target}` (requer permissão `settings:edit`)
+- Resetar interface: `PUT /api/settings/reset` (admin)
+
+Sistema e arquivo de banco
+- Info do arquivo de banco: `GET /api/system/db` (admin)
+- Download do banco: `GET /api/system/db/download` (admin)
+
+Backup e Restauração
+- Download do backup: `GET /api/backup/download` (permissão `backup:download`)
+- Restaurar backup: `POST /api/backup/restore` (permissão `backup:restore`, multipart `file`)
+
+Solução de problemas
+- Erro OpenSSL com Node (ex.: `ERR_OSSL_EVP_UNSUPPORTED`): defina `NODE_OPTIONS=--openssl-legacy-provider` ao iniciar processos de build/dev da UI.
+- Portas: certifique‑se de que `8081` está livre para a interface.
+- FFmpeg: confirme que o binário está acessível no PATH do sistema.
+
+Capturas e exemplos
+- As imagens de exemplo estão em `images/` e mostram telas como Login, Dashboard, Cameras, Camview, Config, Console, Notificações, Gravações e Utilização.
+
+Contribuição
+- Siga as diretrizes em `CONTRIBUTING.md`.
+- Issues e PRs são bem‑vindos.
+
+Licença
+- MIT. Consulte `LICENSE` para detalhes.
 > 🚀 New Version in Development 🚀
 >
 > A new version of camera.ui is currently under active development. An initial alpha/beta release and previews are coming soon. Stay tuned for exciting updates!

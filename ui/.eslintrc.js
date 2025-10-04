@@ -14,6 +14,8 @@ module.exports = {
     'comma-dangle': ['error', 'only-multiline'],
     'no-multiple-empty-lines': ['warn', { max: 1, maxEOF: 0 }],
     'eol-last': ['error', 'always'],
+    // Allow Windows CRLF to avoid prettier/prettier compile blocking on \r characters
+    'prettier/prettier': ['error', { endOfLine: 'auto' }],
     'space-before-function-paren': ['error', { named: 'never' }],
     'vue/multi-word-component-names': 'off',
   },

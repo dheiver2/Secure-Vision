@@ -24,7 +24,7 @@ export default {
 
   computed: {
     chartColorRGB() {
-      const color = localStorage.getItem('theme-color') || 'pink';
+      const color = localStorage.getItem('theme-color') || 'gray';
 
       switch (color) {
         case 'blue':
@@ -44,11 +44,11 @@ export default {
         case 'purple':
           return '124, 72, 194';
         default:
-          return '209, 32, 73';
+          return '98, 99, 101';
       }
     },
     chartColorRGB2() {
-      const color = localStorage.getItem('theme-color') || 'pink';
+      const color = localStorage.getItem('theme-color') || 'gray';
 
       switch (color) {
         case 'blue':
@@ -68,7 +68,7 @@ export default {
         case 'purple':
           return '50, 29, 78';
         default:
-          return '133, 21, 47';
+          return '39, 40, 40';
       }
     },
     chartPointerColorRGB() {

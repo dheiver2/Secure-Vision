@@ -76,6 +76,12 @@ export default class StreamService {
       videoArguments.unshift('-map', videoConfig.mapvideo);
     }
 
+    // Reduce startup latency for direct RTSP inputs (skip probing/analysis)
+    if (!prebuffer) {
+      ffmpegInput.unshift('-probesize', '500000');
+      ffmpegInput.unshift('-analyzeduration', '0');
+    }
+
     const audioArguments = [];
 
     if (cameraSetting?.audio && this.#mediaService.codecs.audio.length > 0) {
@@ -102,6 +108,18 @@ export default class StreamService {
       '-threads',
       '1',
       '-q',
+      '1',
+      // Low-latency muxing/decoding flags
+      '-fflags',
+      'nobuffer',
+      '-flags',
+      'low_delay',
+      '-max_interleave_delta',
+      '0',
+      // Reduce input and muxer buffering
+      '-rtbufsize',
+      '512k',
+      '-flush_packets',
       '1',
       '-max_muxing_queue_size',
       '1024',
@@ -151,8 +169,26 @@ export default class StreamService {
       });
 
       let errors = [];
+      let bytesOut = 0;
+      let metricsInterval = setInterval(() => {
+        try {
+          const room = `stream/${this.cameraName}`;
+          const clients = Socket.io.sockets?.adapter?.rooms?.get(room)?.size || 0;
+          const bitrate = Math.round((bytesOut * 8) / 2); // bits per second (approx)
+          bytesOut = 0;
+
+          Socket.io.emit('streamMetrics', {
+            camera: this.cameraName,
+            bitrate,
+            clients,
+          });
+        } catch (_) {
+          // ignore metrics errors
+        }
+      }, 2000);
 
       this.streamSession.stdout.on('data', (data) => {
+        bytesOut += data.length || 0;
         Socket.io.to(`stream/${this.cameraName}`).emit(this.cameraName, data);
       });
 
@@ -170,6 +206,7 @@ export default class StreamService {
         }
 
         this.streamSession = null;
+        clearInterval(metricsInterval);
 
         /*if (!prebuffer) {
           this.#sessionService.closeSession();

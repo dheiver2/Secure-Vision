@@ -1,6 +1,6 @@
 <template lang="pug">
 .loader.tw-flex.tw-justify-center.tw-align-center
-  inline-svg(:src="require('../assets/img/logo_loading_circle.svg')" title="camera.ui" aria-label="camera.ui" width="200px")
+  inline-svg(:src="require('../assets/img/logo_loading_circle.svg')" title="SecureVision" aria-label="SecureVision" width="200px")
 </template>
 
 <script>

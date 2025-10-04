@@ -155,6 +155,10 @@ export default {
     snapshotTimeout: null,
     streamTimeout: null,
     timeout: 60,
+    snapshotRequestId: 0,
+    // Visibility-based resource management
+    intersectionObserver: null,
+    hiddenStopTimeout: null,
   }),
 
   async mounted() {
@@ -181,7 +185,12 @@ export default {
     this.timeout = this.camera.settings.streamTimeout || 60;
 
     if (this.stream) {
+      this.resizeCanvasToContainer();
+      window.addEventListener('resize', this.resizeCanvasToContainer);
       this.startStream();
+      // Observe visibility to pause/reduce resource usage
+      this.setupIntersectionObserver();
+      document.addEventListener('visibilitychange', this.handleVisibilityChange);
     } else if (this.snapshot || this.refreshSnapshot) {
       this.startSnapshot();
     }
@@ -268,6 +277,81 @@ export default {
         this.player.source.pause(true);
       }
     },
+    setupIntersectionObserver() {
+      const container = this.$refs.videoPlayer?.$el || this.$el;
+      if (!container) return;
+
+      try {
+        this.intersectionObserver = new IntersectionObserver(
+          (entries) => {
+            const entry = entries[0];
+            if (!entry) return;
+
+            if (entry.isIntersecting) {
+              // Back to viewport: resume or restart
+              if (this.hiddenStopTimeout) {
+                clearTimeout(this.hiddenStopTimeout);
+                this.hiddenStopTimeout = null;
+              }
+
+              if (this.player) {
+                // Resume playback if paused
+                if (this.player.paused) {
+                  this.player.play();
+                }
+              } else if (this.stream) {
+                // Restart stream if previously stopped
+                this.refreshStream(true);
+                this.startStream();
+              }
+            } else {
+              // Out of viewport: pause immediately and schedule stop to free backend
+              this.pauseStream(true);
+
+              if (this.hiddenStopTimeout) {
+                clearTimeout(this.hiddenStopTimeout);
+              }
+
+              this.hiddenStopTimeout = setTimeout(() => {
+                // Fully stop and leave stream room to free server resources
+                this.stopStream();
+              }, 15000);
+            }
+          },
+          { threshold: 0.15 }
+        );
+
+        this.intersectionObserver.observe(container);
+      } catch (e) {
+        // IntersectionObserver might not be available in some environments
+        // Fallback to document visibility
+      }
+    },
+    handleVisibilityChange() {
+      const hidden = document.visibilityState === 'hidden';
+      if (hidden) {
+        this.pauseStream(true);
+        if (this.hiddenStopTimeout) {
+          clearTimeout(this.hiddenStopTimeout);
+        }
+        this.hiddenStopTimeout = setTimeout(() => {
+          this.stopStream();
+        }, 15000);
+      } else {
+        if (this.hiddenStopTimeout) {
+          clearTimeout(this.hiddenStopTimeout);
+          this.hiddenStopTimeout = null;
+        }
+        if (this.player) {
+          if (this.player.paused) {
+            this.player.play();
+          }
+        } else if (this.stream) {
+          this.refreshStream(true);
+          this.startStream();
+        }
+      }
+    },
     refreshStream(rejoin) {
       if (!this.stream) {
         return;
@@ -344,6 +428,7 @@ export default {
         });
 
         if (status.data.status === 'ONLINE') {
+          const currentId = ++this.snapshotRequestId;
           const snapshot = await getCameraSnapshot(this.camera.name, '?buffer=true');
           this.loading = false;
 
@@ -351,7 +436,9 @@ export default {
             this.offline = true;
           } else {
             this.offline = false;
-            this.imgSource = `data:image/png;base64,${snapshot.data}`;
+            if (currentId === this.snapshotRequestId) {
+              this.imgSource = `data:image/jpeg;base64,${snapshot.data}`;
+            }
           }
         } else {
           this.offline = true;
@@ -391,9 +478,10 @@ export default {
             source: JSMpegWritableSource,
             canvas: this.$refs.streamBox,
             audio: true,
+            webgl: true,
             //disableWebAssembly: true,
             pauseWhenHidden: false,
-            videoBufferSize: 1024 * 1024,
+            videoBufferSize: 256 * 1024,
             onSourcePaused: () => {
               this.play = false;
             },
@@ -415,6 +503,13 @@ export default {
           this.player.volume = 0;
           this.player.name = this.camera.name;
           this.audio = !this.isMobile() && this.player.volume;
+
+          const savedAudioPref = localStorage.getItem(`sv-audio-${this.camera.name}`);
+          if (savedAudioPref !== null) {
+            const preferAudio = savedAudioPref === '1';
+            this.player.volume = preferAudio ? 1 : 0;
+            this.audio = preferAudio;
+          }
 
           this.$socket.client.emit('join_stream', {
             feed: this.camera.name,
@@ -456,6 +551,20 @@ export default {
       document.removeEventListener('touchstart', this.onTouchStart);
       window.removeEventListener('orientationchange', this.resizeFullscreenVideo);
       window.removeEventListener('resize', this.resizeFullscreenVideo);
+      window.removeEventListener('resize', this.resizeCanvasToContainer);
+      document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+      if (this.intersectionObserver) {
+        try {
+          this.intersectionObserver.disconnect();
+        } catch {
+          void 0;
+        }
+        this.intersectionObserver = null;
+      }
+      if (this.hiddenStopTimeout) {
+        clearTimeout(this.hiddenStopTimeout);
+        this.hiddenStopTimeout = null;
+      }
     },
     stopSnapshot() {
       if (this.snapshotTimeout) {
@@ -500,6 +609,17 @@ export default {
     },
     windowWidth() {
       return Math.max(document.documentElement.clientWidth, window.innerWidth);
+    },
+    resizeCanvasToContainer() {
+      const canvas = this.$refs.streamBox;
+      if (!canvas) return;
+
+      const container = this.$refs.videoPlayer?.$el || canvas.parentElement;
+      const width = container?.clientWidth || 1280;
+      const height = Math.round(width / (16 / 9));
+
+      canvas.width = width;
+      canvas.height = height;
     },
     writeStream(buffer) {
       if (this.player) {
@@ -674,3 +794,7 @@ export default {
   height: 100%;
 }
 </style>
+handleVolume() { if (this.player) { const state = this.player.volume; if (state) { this.player.volume = 0; this.audio =
+false; localStorage.setItem(`sv-audio-${this.camera.name}`, '0'); } else { this.player.audioOut.unlock(() => {});
+this.player.volume = 1; this.audio = true; localStorage.setItem(`sv-audio-${this.camera.name}`, '1'); } } else {
+this.audio = false; } },

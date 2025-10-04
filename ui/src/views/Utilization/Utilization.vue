@@ -83,12 +83,12 @@ export default {
 
       cpuData: {
         label: this.$t('system'),
-        label2: 'camera.ui',
+        label2: 'SecureVision',
         data: [],
       },
       memoryData: {
         label: this.$t('system'),
-        label2: 'camera.ui',
+        label2: 'SecureVision',
         data: [],
       },
       tempData: {

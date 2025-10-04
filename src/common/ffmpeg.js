@@ -178,14 +178,12 @@ export const getAndStoreSnapshot = (
       ...ffmpegInput,
       '-s',
       `${videoWidth}x${videoHeight}`,
+      // produce a single frame quickly to stdout
       '-frames:v',
-      '2',
-      '-r',
       '1',
-      '-update',
-      '1',
+      // use image2pipe to ensure proper piping of JPEG data
       '-f',
-      'image2',
+      'image2pipe',
     ];
 
     if (videoConfig.videoFilter) {

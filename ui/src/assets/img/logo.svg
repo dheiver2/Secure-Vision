@@ -1,1 +1,48 @@
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 132.55 158.35"><defs><style>.cls-1-1{fill:url(#dark_wine);}.cls-1-2{fill:url(#light_wine);}.cls-1-3{fill:#c5c6c8;}.cls-1-4{fill:#1a1e21;stroke:#3a3a3a;stroke-width:2px;}.cls-1-5{fill:#fff;}</style><linearGradient id="dark_wine" x1="45.89" y1="124.26" x2="45.89" y2="25.44" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#730000"/><stop offset="0.49" stop-color="#a51733"/></linearGradient><linearGradient id="light_wine" x1="71.59" y1="163.18" x2="71.59" y2="46.47" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#f44a6b"/><stop offset="0.28" stop-color="#df294c"/></linearGradient></defs><g id="CameraUI_U"><path id="U_Left" class="cls-1-1" d="M5.58,85.06s7.58,16,14.12,23.42a45.28,45.28,0,0,0,16.37,11.86,49.46,49.46,0,0,0,21.42,3.87c9.43-.46,20.55-3.87,29.24-11.86-3.9,2.5-9.87,5.1-15.9,4.77A25.68,25.68,0,0,1,52.44,108c-9.38-10.31-7.61-28.35-7.74-32.68-.35-11.42.77-21.92-1.76-36.19-.46-2.64-1.79-5.19-4.55-8C36.55,29.33,30,25.43,25,25.44c-7.31,0-12.95,3.72-15.38,7.84-2,3.41-3.07,4.22-4.23,25.08a217.23,217.23,0,0,0,.22,26.76Z" transform="translate(-5.05 -4.82)"/><path id="U_Right" class="cls-1-2" d="M102.65,55.19a16.24,16.24,0,0,1,4.06-4.9c4.16-3.4,9-3.67,10.92-3.82a19.7,19.7,0,0,1,12.53,4.58c1.19,1,6.11,5.58,7.12,17.29.74,8.51,3.32,65.93-37,87.14-4.22,2.22-18,9.26-35.66,7.38a62.43,62.43,0,0,1-20.8-6.11,65.8,65.8,0,0,1-18.89-14.23C4.73,120.85,5.58,85.06,5.58,85.06s7.58,16,14.12,23.42a45.28,45.28,0,0,0,16.37,11.86,49.46,49.46,0,0,0,21.42,3.87c11.66-.57,25.93-5.64,35-18.32C102.05,92.39,97,66.1,102.65,55.19Z" transform="translate(-5.05 -4.82)"/></g><g id="CameraUI_Lens"><circle id="lens_bg" class="cls-1-3" cx="112.11" cy="18.66" r="18.66"/><path id="lens_inner" class="cls-1-4" d="M128.17,23.9a11,11,0,1,1-22,0c0-6.08,4.93-11.86,11-11.86S128.17,17.82,128.17,23.9Z" transform="translate(-5.05 -4.82)"/><g id="reflections"><ellipse id="dot_1" class="cls-1-5" cx="127.34" cy="13.96" rx="1.84" ry="1.42"/><ellipse id="dot_2" class="cls-1-5" cx="127.34" cy="17.34" rx="1.84" ry="1.42"/><ellipse id="dot_3" class="cls-1-5" cx="127.34" cy="20.73" rx="1.84" ry="1.42"/><circle id="dot_4" class="cls-1-5" cx="117.07" cy="24.04" r="1.66"/><path id="wide_1" class="cls-1-5" d="M115.16,14.49c-1.07-.88-5.52,3.09-6.31,5.43a1.53,1.53,0,0,0,0,1.26c.43.69,1.73.61,2.18.54,2.69-.44,4.72-4.09,4.81-4.37A3.21,3.21,0,0,0,115.16,14.49Z" transform="translate(-5.05 -4.82)"/></g></g></svg>
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="SecureVision logo">
+  <defs>
+    <linearGradient id="sv-primary" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#00D1FF" />
+      <stop offset="100%" stop-color="#4C7AF2" />
+    </linearGradient>
+    <linearGradient id="sv-accent" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#7CF4FF" />
+      <stop offset="100%" stop-color="#7EA7FF" />
+    </linearGradient>
+    <filter id="soft-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000" flood-opacity="0.25" />
+    </filter>
+  </defs>
+
+  <!-- Shield base -->
+  <path filter="url(#soft-shadow)" d="M128 18 L208 62 V162 C208 202 168 236 128 240 C88 236 48 202 48 162 V62 Z" fill="url(#sv-primary)" />
+
+  <!-- Inner shield contour -->
+  <path d="M128 32 L196 70 V156 C196 190 162 220 128 224 C94 220 60 190 60 156 V70 Z" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="4" />
+
+  <!-- Eye motif -->
+  <ellipse cx="128" cy="116" rx="46" ry="30" fill="rgba(255,255,255,0.95)" />
+  <ellipse cx="128" cy="116" rx="40" ry="24" fill="url(#sv-accent)" />
+  <circle cx="128" cy="116" r="10" fill="#0B1F3B" />
+  <circle cx="132" cy="112" r="3.5" fill="#CCE6FF" />
+
+  <!-- Scan arcs -->
+  <path d="M98 98 a42 28 0 0 1 60 0" stroke="rgba(11,31,59,0.18)" stroke-width="3" fill="none" />
+  <path d="M98 134 a42 28 0 0 0 60 0" stroke="rgba(11,31,59,0.18)" stroke-width="3" fill="none" />
+
+  <!-- Circuit accents -->
+  <g stroke="#EAF2FF" stroke-width="3" stroke-linecap="round">
+    <path d="M60 110 h-10" />
+    <circle cx="46" cy="110" r="3" fill="#EAF2FF" />
+    <path d="M196 122 h10" />
+    <circle cx="210" cy="122" r="3" fill="#EAF2FF" />
+    <path d="M128 70 v-10" />
+    <circle cx="128" cy="56" r="3" fill="#EAF2FF" />
+  </g>
+
+  <!-- Subtle S mark -->
+  <path d="M108 168 c-8 0 -14 6 -14 12 c0 10 14 14 24 14 c12 0 24 4 24 14 c0 8 -8 14 -18 14 c-9 0 -18 -4 -24 -10" fill="none" stroke="rgba(255,255,255,0.65)" stroke-width="4" stroke-linecap="round" />
+
+  <!-- Title for accessibility -->
+  <title>SecureVision</title>
+</svg>

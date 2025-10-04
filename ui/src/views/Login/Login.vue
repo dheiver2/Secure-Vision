@@ -7,7 +7,7 @@
         .tw-block
           h2.tw-leading-10.tw-font-black {{ $t('signin') }}
           span.subtitle.tw-font-medium {{ $t('welcome_message') }} 
-            strong.text-primary camera.ui
+            strong.text-primary SecureVision
         .tw-ml-auto
           v-img.logo(src="@/assets/img/logo.svg" width="35px")
       v-row.tw-w-full.tw-m-0.tw-mt-5
@@ -60,7 +60,7 @@ export default {
 
       valid: true,
 
-      moduleName: 'camera.ui',
+      moduleName: 'SecureVision',
       version: version,
     };
   },
@@ -80,7 +80,7 @@ export default {
   created() {
     this.loadRestart = this.restarted;
 
-    this.moduleName = this.uiConfig?.env?.moduleName || 'camera.ui';
+    this.moduleName = this.uiConfig?.env?.moduleName || 'SecureVision';
     this.version = this.uiConfig.version || version;
   },
 

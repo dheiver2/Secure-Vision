@@ -98,7 +98,7 @@ export default {
       ),
     ];
 
-    this.appearance.color = localStorage.getItem('theme-color') || 'pink';
+    this.appearance.color = localStorage.getItem('theme-color') || 'gray';
     this.appearance.lang = this.uiConfig.currentLanguage || 'en';
     this.appearance.mode =
       localStorage.getItem('darkmode') === 'auto' ? 'auto' : localStorage.getItem('theme') || 'light';

@@ -9,6 +9,8 @@ export default io(
     //forceNew: true,
     reconnection: true,
     reconnectionDelay: 500,
+    reconnectionDelayMax: 5000,
+    randomizationFactor: 0.5,
     maxReconnectionAttempts: Infinity,
   }
 );

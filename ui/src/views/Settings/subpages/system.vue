@@ -570,7 +570,7 @@ export default {
         const url = window.URL.createObjectURL(new Blob([JSON.stringify(response.data)], { type: 'text/json' }));
         const link = document.createElement('a');
         link.href = url;
-        link.setAttribute('download', 'camera.ui.config.json');
+        link.setAttribute('download', 'securevision.config.json');
         document.body.appendChild(link);
         link.click();
         link.remove();
@@ -595,7 +595,7 @@ export default {
         const url = window.URL.createObjectURL(new Blob([JSON.stringify(response.data)], { type: 'text/json' }));
         const link = document.createElement('a');
         link.href = url;
-        link.setAttribute('download', 'camera.ui.database.json');
+        link.setAttribute('download', 'securevision.database.json');
         document.body.appendChild(link);
         link.click();
         link.remove();

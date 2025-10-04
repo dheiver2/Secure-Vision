@@ -236,7 +236,7 @@ export default {
   data() {
     return {
       env: '',
-      moduleName: 'camera.ui',
+      moduleName: 'SecureVision',
 
       valid: true,
       rules: {
@@ -304,7 +304,7 @@ export default {
 
   mounted() {
     this.env = process.env.NODE_ENV;
-    this.moduleName = this.uiConfig?.env?.moduleName || 'camera.ui';
+    this.moduleName = this.uiConfig?.env?.moduleName || 'SecureVision';
 
     this.camReset = { ...this.cam };
     this.loading = false;

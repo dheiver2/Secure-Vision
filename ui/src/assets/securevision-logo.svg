@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="160" viewBox="0 0 640 160" role="img" aria-labelledby="title desc">
+  <title id="title">SecureVision</title>
+  <desc id="desc">Logotipo do projeto SecureVision com ícone de escudo e olho.</desc>
+
+  <defs>
+    <linearGradient id="gradShield" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4F46E5"/>
+      <stop offset="100%" stop-color="#06B6D4"/>
+    </linearGradient>
+    <linearGradient id="gradText" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0EA5E9"/>
+      <stop offset="100%" stop-color="#22C55E"/>
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000" flood-opacity="0.25" />
+    </filter>
+  </defs>
+
+  <!-- Fundo opcional transparente -->
+  <rect x="0" y="0" width="640" height="160" fill="none"/>
+
+  <!-- Ícone: escudo com olho (visão + segurança) -->
+  <g transform="translate(24,20)" filter="url(#softShadow)">
+    <!-- Escudo -->
+    <path d="M64 0 L128 24 V72 C128 108 101 132 64 144 C27 132 0 108 0 72 V24 Z" fill="url(#gradShield)"/>
+    <!-- Olho -->
+    <ellipse cx="64" cy="64" rx="34" ry="22" fill="#ffffff" opacity="0.9"/>
+    <ellipse cx="64" cy="64" rx="30" ry="18" fill="#0ea5e9" opacity="0.25"/>
+    <!-- Íris/Pupila -->
+    <circle cx="64" cy="64" r="10" fill="#111827"/>
+    <circle cx="70" cy="58" r="4" fill="#ffffff" opacity="0.85"/>
+  </g>
+
+  <!-- Wordmark: SecureVision -->
+  <g transform="translate(180,40)">
+    <text x="0" y="0" font-family="Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif" font-size="56" font-weight="700" fill="url(#gradText)">
+      Secure<tspan fill="#10B981">Vision</tspan>
+    </text>
+    <text x="2" y="46" font-family="Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif" font-size="16" font-weight="500" fill="#6B7280">
+      Vigilância inteligente com performance em tempo real
+    </text>
+  </g>
+
+  <!-- Linha decorativa -->
+  <rect x="180" y="100" width="420" height="4" rx="2" fill="#e5e7eb" opacity="0.35"/>
+</svg>
