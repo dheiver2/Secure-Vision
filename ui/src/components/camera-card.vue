@@ -36,6 +36,8 @@
         .tw-w-full.tw-h-full(@click="!noLink && !blank ? $router.push(`cameras/${camera.name}`) : null" :class="!noLink && !blank ? 'tw-cursor-pointer' : ''")
           .tw-bg-black.tw-absolute.tw-inset-0(v-if="loading || false" style="border-radius: 10px;")
           canvas.main.tw-w-full.tw-h-full(v-if="stream" ref="streamBox" width="1280" height="720")
+          // Detection overlay canvas (boxes/labels)
+          canvas.overlay-canvas.tw-w-full.tw-h-full.tw-absolute.tw-inset-0(v-if="stream" ref="detectionOverlay")
           .tw-w-full.tw-h-full(v-else)
             .img-shadow-overlay
             v-img.main.tw-w-full.tw-h-full(:src="imgSource")
@@ -159,6 +161,9 @@ export default {
     // Visibility-based resource management
     intersectionObserver: null,
     hiddenStopTimeout: null,
+    // Detections overlay
+    detections: [],
+    clearDetectionsTimeout: null,
   }),
 
   async mounted() {
@@ -186,11 +191,15 @@ export default {
 
     if (this.stream) {
       this.resizeCanvasToContainer();
+      this.updateOverlaySize();
       window.addEventListener('resize', this.resizeCanvasToContainer);
+      window.addEventListener('resize', this.updateOverlaySize);
       this.startStream();
       // Observe visibility to pause/reduce resource usage
       this.setupIntersectionObserver();
       document.addEventListener('visibilitychange', this.handleVisibilityChange);
+      // Subscribe to detections from backend
+      this.$socket.client.on('videoanalysisDetections', this.onDetections);
     } else if (this.snapshot || this.refreshSnapshot) {
       this.startSnapshot();
     }
@@ -517,6 +526,9 @@ export default {
 
           this.$socket.client.on(this.camera.name, this.writeStream);
 
+          // Ensure overlay matches the canvas once stream is live
+          this.updateOverlaySize();
+
           this.streamTimeout = setTimeout(() => {
             if (this.loading) {
               this.loading = false;
@@ -547,7 +559,9 @@ export default {
       this.stopSnapshot();
 
       this.$socket.client.off(this.camera.name, this.writeStream);
+      this.$socket.client.off('videoanalysisDetections', this.onDetections);
       document.removeEventListener('keydown', this.logKey);
+      window.removeEventListener('resize', this.updateOverlaySize);
       document.removeEventListener('touchstart', this.onTouchStart);
       window.removeEventListener('orientationchange', this.resizeFullscreenVideo);
       window.removeEventListener('resize', this.resizeFullscreenVideo);
@@ -624,6 +638,84 @@ export default {
     writeStream(buffer) {
       if (this.player) {
         this.player.source.write(buffer);
+      }
+    },
+    updateOverlaySize() {
+      const overlay = this.$refs.detectionOverlay;
+      const canvas = this.$refs.streamBox;
+      if (!overlay || !canvas) return;
+
+      const container = this.$refs.videoPlayer?.$el || canvas.parentElement;
+      const width = container?.clientWidth || canvas.width || 1280;
+      const height = Math.round(width / (16 / 9));
+
+      overlay.width = width;
+      overlay.height = height;
+    },
+    onDetections(payload) {
+      if (!payload || payload.camera !== this.camera.name) return;
+      this.detections = payload.detections || [];
+      this.drawDetections();
+
+      if (this.clearDetectionsTimeout) {
+        clearTimeout(this.clearDetectionsTimeout);
+        this.clearDetectionsTimeout = null;
+      }
+
+      // Auto-clear after 3s
+      this.clearDetectionsTimeout = setTimeout(() => {
+        this.clearDetections();
+      }, 3000);
+    },
+    clearDetections() {
+      this.detections = [];
+      const overlay = this.$refs.detectionOverlay;
+      if (!overlay) return;
+      const ctx = overlay.getContext('2d');
+      if (!ctx) return;
+      ctx.clearRect(0, 0, overlay.width, overlay.height);
+    },
+    drawDetections() {
+      const overlay = this.$refs.detectionOverlay;
+      if (!overlay) return;
+      const ctx = overlay.getContext('2d');
+      if (!ctx) return;
+
+      ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+      // Canvas size
+      const W = overlay.width;
+      const H = overlay.height;
+
+      // Style
+      ctx.lineWidth = 2;
+      ctx.font = '12px sans-serif';
+
+      for (const det of this.detections) {
+        const label = det.label || 'object';
+        const conf = det.confidence || 0;
+        const boxes = det.boxes || [];
+
+        for (const b of boxes) {
+          // Rekognition BoundingBox is relative [0..1]
+          const x = (b.left || 0) * W;
+          const y = (b.top || 0) * H;
+          const w = (b.width || 0) * W;
+          const h = (b.height || 0) * H;
+
+          // Draw box
+          ctx.strokeStyle = 'rgba(0, 255, 0, 0.9)';
+          ctx.fillStyle = 'rgba(0, 255, 0, 0.15)';
+          ctx.strokeRect(x, y, w, h);
+          ctx.fillRect(x, y, w, h);
+
+          // Draw label
+          const text = `${label} (${conf.toFixed ? conf.toFixed(1) : conf}%)`;
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+          ctx.fillRect(x, y - 16, ctx.measureText(text).width + 8, 16);
+          ctx.fillStyle = '#00FF00';
+          ctx.fillText(text, x + 4, y - 4);
+        }
       }
     },
   },
@@ -792,6 +884,15 @@ export default {
   right: 0;
   width: 100%;
   height: 100%;
+}
+.overlay-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 2;
 }
 </style>
 handleVolume() { if (this.player) { const state = this.player.volume; if (state) { this.player.volume = 0; this.audio =

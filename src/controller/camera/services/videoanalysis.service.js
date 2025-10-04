@@ -5,9 +5,13 @@ import moment from 'moment';
 import P2P from 'pipe2pam';
 import PamDiff from 'pam-diff';
 import { spawn } from 'child_process';
+import { RekognitionClient, DetectLabelsCommand } from '@aws-sdk/client-rekognition';
 
 import * as cameraUtils from '../utils/camera.utils.js';
 import Ping from '../../../common/ping.js';
+
+import * as SettingsModel from '../../../api/components/settings/settings.model.js';
+import * as CamerasModel from '../../../api/components/cameras/cameras.model.js';
 
 import Database from '../../../api/database.js';
 
@@ -342,6 +346,27 @@ export default class VideoAnalysisService {
       if (!this.motionEventTimeout) {
         this.#triggerMotion(true, event);
 
+        // Throttled object detection on motion
+        try {
+          const now = Date.now();
+          this.lastDetectionTs = this.lastDetectionTs || 0;
+
+          if (now - this.lastDetectionTs > 10000) {
+            this.lastDetectionTs = now;
+            const detections = await this.#runObjectDetection();
+
+            if (detections && detections.length) {
+              Socket.io.emit('videoanalysisDetections', {
+                camera: this.cameraName,
+                detections,
+              });
+            }
+          }
+        } catch (error) {
+          log.debug('Object detection error', this.cameraName);
+          log.error(error, this.cameraName, 'videoanalysis');
+        }
+
         // forceClose after 3min
         if (pamDiff.forceCloseTime > 0) {
           this.forceCloseTimeout = setTimeout(() => {
@@ -420,6 +445,98 @@ export default class VideoAnalysisService {
       pamDiff,
       p2p,
     };
+  }
+
+  async #runObjectDetection() {
+    try {
+      // Load settings and camera-specific Rekognition config
+      const database = await SettingsModel.show(true);
+      const SettingsDB = database.settings;
+      const CameraSettings = database.settings.cameras.find((camera) => camera.name === this.cameraName);
+
+      const awsSettings = {
+        active: SettingsDB.aws?.active,
+        accessKeyId: SettingsDB.aws?.accessKeyId,
+        secretAccessKey: SettingsDB.aws?.secretAccessKey,
+        region: SettingsDB.aws?.region,
+        contingent_left: SettingsDB.aws?.contingent_left,
+        contingent_total: SettingsDB.aws?.contingent_total,
+        last_rekognition: SettingsDB.aws?.last_rekognition,
+      };
+
+      if (!awsSettings.active || !CameraSettings?.rekognition?.active) {
+        return [];
+      }
+
+      if (awsSettings.contingent_total <= 0 || awsSettings.contingent_left <= 0) {
+        log.debug('No Rekognition contingent left, skip detection..', this.cameraName);
+        return [];
+      }
+
+      // Grab a fresh snapshot buffer
+      const imgBuffer = await CamerasModel.requestSnapshot(this.#camera);
+      if (!imgBuffer || !imgBuffer.length) {
+        return [];
+      }
+
+      const labelsFilter = (CameraSettings.rekognition.labels || ['person', 'human', 'face']).map((l) =>
+        String(l).toLowerCase()
+      );
+      const minConfidence = CameraSettings.rekognition.confidence || 80;
+
+      if (awsSettings.accessKeyId && awsSettings.secretAccessKey && awsSettings.region) {
+        const client = new RekognitionClient({
+          credentials: {
+            accessKeyId: awsSettings.accessKeyId,
+            secretAccessKey: awsSettings.secretAccessKey,
+          },
+          region: awsSettings.region,
+        });
+
+        const command = new DetectLabelsCommand({
+          Image: { Bytes: imgBuffer },
+          MaxLabels: 10,
+          MinConfidence: 50,
+        });
+
+        const response = await client.send(command);
+        const detections = [];
+
+        for (const label of response.Labels || []) {
+          const name = String(label.Name || '').toLowerCase();
+          const conf = Number.parseFloat((label.Confidence || 0).toFixed(2));
+
+          if (labelsFilter.includes(name) && conf >= minConfidence) {
+            // Include bounding boxes when available
+            const boxes = (label.Instances || [])
+              .map((inst) => inst?.BoundingBox)
+              .filter(Boolean)
+              .map((b) => ({ left: b.Left, top: b.Top, width: b.Width, height: b.Height }));
+
+            detections.push({ label: name, confidence: conf, boxes });
+          }
+        }
+
+        // Update contingent
+        try {
+          await SettingsModel.patchByTarget(false, 'aws', {
+            contingent_left: (awsSettings.contingent_left || 1) - 1,
+            last_rekognition: moment().format('YYYY-MM-DD HH:mm:ss'),
+          });
+        } catch {
+          // ignore quota update errors
+        }
+
+        return detections;
+      }
+
+      log.warn('AWS Rekognition not configured in config.json', this.cameraName, 'videoanalysis');
+      return [];
+    } catch (error) {
+      log.info('Error during object detection', this.cameraName, 'videoanalysis');
+      log.error(error, this.cameraName, 'videoanalysis');
+      return [];
+    }
   }
 
   async #triggerMotion(state, data) {
