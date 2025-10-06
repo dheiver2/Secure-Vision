@@ -324,7 +324,7 @@ export default {
               this.hiddenStopTimeout = setTimeout(() => {
                 // Fully stop and leave stream room to free server resources
                 this.stopStream();
-              }, 15000);
+              }, 5000);
             }
           },
           { threshold: 0.15 }
@@ -345,7 +345,7 @@ export default {
         }
         this.hiddenStopTimeout = setTimeout(() => {
           this.stopStream();
-        }, 15000);
+        }, 5000);
       } else {
         if (this.hiddenStopTimeout) {
           clearTimeout(this.hiddenStopTimeout);
@@ -605,6 +605,9 @@ export default {
       this.$socket.client.emit('leave_stream', {
         feed: this.camera.name,
       });
+
+      // Ensure we don't keep stale listeners around when stopping
+      this.$socket.client.off(this.camera.name, this.writeStream);
     },
     toggleFullscreen() {
       this.fullscreen = !this.fullscreen;

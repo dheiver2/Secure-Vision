@@ -8,6 +8,7 @@
     "lint": "vue-cli-service lint"
   },
   "dependencies": {
+    "@aws-sdk/client-rekognition": "^3.901.0",
     "@mdi/js": "^6.6.96",
     "@seydx/jsmpeg": "^1.0.1",
     "axios": "^0.26.1",
